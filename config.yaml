@@ -43,3 +43,21 @@ cors:
   allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   allowed_headers: ["Authorization", "Content-Type", "X-Request-ID"]
   max_age: 300
+
+# Story 2.7: Dual Auth Failover Configuration
+dual_auth:
+  enabled: true
+  health_check_interval_seconds: 10
+  failure_threshold: 3
+  recovery_threshold: 3
+  max_failovers_per_hour: 3
+  health_check_timeout_seconds: 5
+  password_sync_interval_minutes: 5
+  use_tls: false  # Set true in production
+  tls_skip_verify: false
+  tls_ca_cert_path: ""
+
+# Story 2.7: Security Configuration
+security:
+  # internal_service_secret from INTERNAL_SERVICE_SECRET env var
+  # Used for service-to-service JWT authentication

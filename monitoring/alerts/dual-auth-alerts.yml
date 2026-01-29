@@ -1,0 +1,58 @@
+groups:
+  - name: dual_auth_alerts
+    rules:
+      # Flapping Detection Alert
+      - alert: DualAuthFlappingDetected
+        expr: increase(dual_auth_failover_total[1h]) >= 3
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Dual Auth Flapping Detected"
+          description: "Auth system has failover >= 3 times in the last hour. Manual intervention required."
+          runbook_url: "https://wiki.bfc.vn/runbooks/dual-auth-flapping"
+
+      # Keycloak Down Alert
+      - alert: KeycloakHealthCheckFailing
+        expr: increase(dual_auth_health_check_failures_total[5m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Keycloak Health Check Failing"
+          description: "Keycloak has failed health checks {{ $value }} times in last 5 minutes."
+
+      # Local Mode Active Alert
+      - alert: DualAuthInLocalMode
+        expr: dual_auth_current_mode{mode="local"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Dual Auth Running in Local Mode"
+          description: "System is using Local PostgreSQL auth instead of Keycloak for more than 5 minutes."
+
+      # Complete Outage Alert
+      - alert: DualAuthCompleteOutage
+        expr: increase(dual_auth_complete_outage_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Complete Auth Outage"
+          description: "Both Keycloak and Local auth are unavailable. Users cannot login."
+
+      # Password Sync Failing Alert
+      - alert: PasswordSyncFailing
+        expr: increase(dual_auth_password_sync_total{status="failure"}[30m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Password Sync Failing"
+          description: "Password sync has failed {{ $value }} times in last 30 minutes."

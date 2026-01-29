@@ -16,6 +16,8 @@ type Config struct {
 	TOTP     TOTPConfig     `mapstructure:"totp"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+	DualAuth DualAuthConfig `mapstructure:"dual_auth"`
+	Security SecurityConfig `mapstructure:"security"` // Story 2.7: Security settings
 }
 
 type ServerConfig struct {
@@ -74,6 +76,25 @@ type CORSConfig struct {
 	MaxAge         int      `mapstructure:"max_age"`
 }
 
+// SecurityConfig holds security-related configuration (Story 2.7)
+type SecurityConfig struct {
+	InternalServiceSecret string `mapstructure:"internal_service_secret"` // JWT secret for internal service-to-service calls
+}
+
+// DualAuthConfig holds dual auth configuration
+type DualAuthConfig struct {
+	Enabled                  bool   `mapstructure:"enabled"`
+	HealthCheckIntervalSecs  int    `mapstructure:"health_check_interval_seconds"`
+	FailureThreshold         int    `mapstructure:"failure_threshold"`
+	RecoveryThreshold        int    `mapstructure:"recovery_threshold"`
+	MaxFailoversPerHour      int    `mapstructure:"max_failovers_per_hour"`
+	HealthCheckTimeoutSecs   int    `mapstructure:"health_check_timeout_seconds"`
+	PasswordSyncIntervalMins int    `mapstructure:"password_sync_interval_minutes"`
+	UseTLS                   bool   `mapstructure:"use_tls"`        // Use HTTPS for health checks
+	TLSSkipVerify            bool   `mapstructure:"tls_skip_verify"` // Skip TLS certificate verification
+	TLSCACertPath            string `mapstructure:"tls_ca_cert_path"` // Path to CA certificate
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -86,10 +107,22 @@ func Load() (*Config, error) {
 	viper.BindEnv("redis.password", "REDIS_PASSWORD")
 	viper.BindEnv("keycloak.client_secret", "KEYCLOAK_CLIENT_SECRET")
 	viper.BindEnv("totp.encryption_key", "TOTP_ENCRYPTION_KEY")
+	viper.BindEnv("security.internal_service_secret", "INTERNAL_SERVICE_SECRET")
 
 	// Set defaults
 	viper.SetDefault("keycloak.timeout_seconds", 10)
 	viper.SetDefault("totp.issuer", "BFC-VPN")
+
+	// DualAuth defaults
+	viper.SetDefault("dual_auth.enabled", true)
+	viper.SetDefault("dual_auth.health_check_interval_seconds", 10)
+	viper.SetDefault("dual_auth.failure_threshold", 3)
+	viper.SetDefault("dual_auth.recovery_threshold", 3)
+	viper.SetDefault("dual_auth.max_failovers_per_hour", 3)
+	viper.SetDefault("dual_auth.health_check_timeout_seconds", 5)
+	viper.SetDefault("dual_auth.password_sync_interval_minutes", 5)
+	viper.SetDefault("dual_auth.use_tls", true) // Default to TLS for production
+	viper.SetDefault("dual_auth.tls_skip_verify", false)
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -114,6 +147,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.TOTP.EncryptionKey == "" {
 		cfg.TOTP.EncryptionKey = os.Getenv("TOTP_ENCRYPTION_KEY")
+	}
+	if cfg.Security.InternalServiceSecret == "" {
+		cfg.Security.InternalServiceSecret = os.Getenv("INTERNAL_SERVICE_SECRET")
 	}
 
 	// CRITICAL: Validate required credentials
@@ -143,6 +179,11 @@ func Load() (*Config, error) {
 	// Default TOTP issuer
 	if cfg.TOTP.Issuer == "" {
 		cfg.TOTP.Issuer = "BFC-VPN"
+	}
+
+	// Generate internal service secret if not provided (dev only)
+	if cfg.Security.InternalServiceSecret == "" {
+		cfg.Security.InternalServiceSecret = "dev-internal-secret-change-in-production"
 	}
 
 	return &cfg, nil

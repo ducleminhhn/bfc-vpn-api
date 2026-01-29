@@ -13,7 +13,8 @@ func NewRouter(
 	authHandler *AuthHandler,
 	totpHandler *TOTPHandler,
 	recoveryHandler *RecoveryHandler,
-	localAuthHandler *LocalAuthHandler, // Story 2.6
+	localAuthHandler *LocalAuthHandler,
+	dualAuthHandler *DualAuthHandler, // Story 2.7 - Dual Auth Failover
 ) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -41,15 +42,24 @@ func NewRouter(
 	{
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)
+			// Dual Auth unified endpoints (Story 2.7)
+			if dualAuthHandler != nil {
+				auth.POST("/login", dualAuthHandler.Login)           // Unified login with failover
+				auth.POST("/totp/verify", dualAuthHandler.VerifyTOTP)
+				auth.POST("/recovery/verify", dualAuthHandler.VerifyRecovery)
+				auth.GET("/health", dualAuthHandler.GetAuthHealth)   // Current auth mode status
+			} else {
+				// Fallback to original auth handler if dual auth not configured
+				auth.POST("/login", authHandler.Login)
+			}
+			
 			auth.POST("/logout", authHandler.Logout)
 			auth.POST("/refresh", NotImplemented) // Story 2.8
 
-			// TOTP endpoints (Story 2.4)
+			// TOTP setup endpoints (Story 2.4)
 			totp := auth.Group("/totp")
 			{
 				totp.POST("/setup", totpHandler.Setup)
-				totp.POST("/verify", totpHandler.Verify)
 				totp.GET("/setup-page", totpHandler.SetupPage)
 				totp.GET("/verify-page", totpHandler.VerifyPage)
 			}
@@ -58,15 +68,12 @@ func NewRouter(
 			if recoveryHandler != nil {
 				recovery := auth.Group("/recovery")
 				{
-					// Public - use recovery code for MFA instead of TOTP
-					recovery.POST("/verify", recoveryHandler.Verify)
-					// AC-3: Download and Print endpoints (available during setup flow)
 					recovery.GET("/download", recoveryHandler.Download)
 					recovery.GET("/print", recoveryHandler.Print)
 				}
 			}
 
-			// Local authentication endpoints (Story 2.6 - Dual Auth Backup)
+			// Local authentication endpoints (Story 2.6 - Direct local access)
 			if localAuthHandler != nil {
 				localAuth := auth.Group("/local")
 				{
@@ -74,6 +81,29 @@ func NewRouter(
 					localAuth.POST("/totp/verify", localAuthHandler.VerifyTOTP)
 					localAuth.POST("/recovery/verify", localAuthHandler.VerifyRecovery)
 				}
+			}
+		}
+
+		// Admin routes (Story 2.7 - Dual Auth Admin)
+		if dualAuthHandler != nil {
+			admin := v1.Group("/admin/auth")
+			// TODO: Add admin auth middleware when implemented
+			// admin.Use(middleware.Auth(), middleware.RequireRole("admin", "super_admin"))
+			{
+				admin.GET("/dual-status", dualAuthHandler.GetDualStatus)
+				admin.POST("/failover", dualAuthHandler.ManualFailover)
+				admin.POST("/recover", dualAuthHandler.ManualRecover)
+				admin.POST("/reset-flapping", dualAuthHandler.ResetFlapping)
+			}
+		}
+
+		// Internal routes (Story 2.7 - Password Sync)
+		if dualAuthHandler != nil {
+			internal := v1.Group("/internal")
+			internal.Use(middleware.InternalOnly(cfg.Security.InternalServiceSecret))
+			{
+				internal.POST("/sync/password", dualAuthHandler.SyncPassword)
+				internal.GET("/sync/status", dualAuthHandler.GetSyncStatus)
 			}
 		}
 
