@@ -1,0 +1,45 @@
+server:
+  port: 8081
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+  https: false  # Set true in production for HSTS
+
+database:
+  host: localhost
+  port: 6432
+  name: bfc_vpn
+  user: app_user
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: 30m
+  statement_timeout: 25s
+  ssl_mode: disable
+
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  pool_size: 10
+
+keycloak:
+  issuer_url: "http://localhost:8080/realms/bfc-vpn"
+  client_id: "bfc-vpn-api"
+  # client_secret from KEYCLOAK_CLIENT_SECRET env var
+  redirect_url: "http://localhost:8081/api/v1/auth/callback"
+  scopes: ["openid", "profile", "email"]
+  timeout_seconds: 10  # Context timeout for Keycloak calls
+
+totp:
+  issuer: "BFC-VPN"
+  # encryption_key from TOTP_ENCRYPTION_KEY env var (32 bytes, base64 encoded)
+
+logging:
+  level: info
+  format: json
+
+cors:
+  allowed_origins: ["http://localhost:3000"]
+  allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allowed_headers: ["Authorization", "Content-Type", "X-Request-ID"]
+  max_age: 300

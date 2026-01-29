@@ -1,0 +1,33 @@
+# Build outputs
+/bin/
+*.exe
+
+# IDE settings
+.idea/
+.vscode/
+
+# Sensitive files - NEVER commit
+.env
+.env.local
+*.pem
+*.key
+
+# Generated files - run 'make generate' after clone
+# These are excluded because:
+# 1. They can be regenerated from source (openapi.yaml, sqlc.yaml)
+# 2. Reduces merge conflicts
+# 3. Ensures generated code matches current schema
+/internal/handler/openapi.gen.go
+/internal/repository/sqlc/
+
+# Test artifacts
+coverage.out
+
+# Air hot reload
+tmp/
+
+# Binary
+/bfc-vpn-api
+
+# Temporary
+/tmp/

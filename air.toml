@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor", "internal/repository/sqlc"]
+  exclude_regex = ["_test.go", ".*_gen.go"]
+  include_ext = ["go", "yaml", "sql"]
+  kill_delay = "2s"
+
+[misc]
+  clean_on_exit = true
